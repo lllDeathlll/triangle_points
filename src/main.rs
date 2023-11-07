@@ -6,11 +6,29 @@ fn main() {
 
         // Getting varriables (triangle vertex coordinates)
         println!("Enter x1 and x2:");
-        let x = get_coordinate();
+        let x = match get_coordinate() {
+            Ok(value) => value,
+            Err(e) => {
+                println!("{}", e);
+                continue;
+            }
+        };
         println!("Enter y1 and y2:");
-        let y = get_coordinate();
+        let y = match get_coordinate() {
+            Ok(value) => value,
+            Err(e) => {
+                println!("{}", e);
+                continue;
+            }
+        };
         println!("Enter z1 and z2:");
-        let z = get_coordinate();
+        let z = match get_coordinate() {
+            Ok(value) => value,
+            Err(e) => {
+                println!("{}", e);
+                continue;
+            }
+        };
 
         // Caclulating min and max x and y coordinates
         let x_min = [x[0], y[0], z[0]].iter().min().unwrap().to_owned();
@@ -53,26 +71,27 @@ fn main() {
 }
 
 // Returns array of two i32
-fn get_coordinate() -> [i32; 2] {
-    let x1 = get_i32();
-    let x2 = get_i32();
-    [x1, x2]
+fn get_coordinate() -> Result<[i32; 2], String> {
+    let x1 = get_i32()?;
+    let x2 = get_i32()?;
+
+    Ok([x1, x2])
 }
 
 // Gets user input and converts it to i32
-fn get_i32() -> i32 {
+fn get_i32() -> Result<i32, String> {
     let mut x = String::new();
 
     io::stdin().read_line(&mut x).expect("Failed to read line");
 
-    let x: i32 = match x.trim().parse() {
-        Ok(num) => num,
+    let x: Result<i32, String> = match x.trim().parse() {
+        Ok(num) => Ok(num),
         // Panics on errors with additional comments
         Err(err) => match err.kind() {
-            std::num::IntErrorKind::InvalidDigit => panic!("Value must be a number! {}", err),
-            std::num::IntErrorKind::PosOverflow => panic!("Value is too big! {}", err),
-            std::num::IntErrorKind::NegOverflow => panic!("Value is too small! {}", err),
-            std::num::IntErrorKind::Empty => 0,
+            std::num::IntErrorKind::InvalidDigit => Err(format!("Value must be a number! {}", err)),
+            std::num::IntErrorKind::PosOverflow => Err(format!("Value is too big! {}", err)),
+            std::num::IntErrorKind::NegOverflow => Err(format!("Value is too small! {}", err)),
+            std::num::IntErrorKind::Empty => Ok(0),
             _ => panic!("Error! {}", err),
         },
     };
