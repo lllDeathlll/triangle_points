@@ -1,4 +1,14 @@
-use std::io;
+use std::{io, num::IntErrorKind};
+struct Point {
+    x: i32,
+    y: i32,
+}
+
+impl Point {
+    fn new(x: i32, y: i32) -> Point {
+        Point { x, y }
+    }
+}
 
 fn main() {
     loop {
@@ -6,104 +16,102 @@ fn main() {
 
         // Getting varriables (triangle vertex coordinates)
         println!("Enter x1 and x2:");
-        let x = match get_coordinate() {
-            Ok(value) => value,
-            Err(e) => {
-                println!("{}", e);
+        let x = match (get_i32(), get_i32()) {
+            (Ok(first), Ok(second)) => Point::new(first, second),
+            (Err(err), _) | (_, Err(err)) => {
+                eprintln!("{}", err);
                 continue;
             }
         };
         println!("Enter y1 and y2:");
-        let y = match get_coordinate() {
-            Ok(value) => value,
-            Err(e) => {
-                println!("{}", e);
+        let y = match (get_i32(), get_i32()) {
+            (Ok(first), Ok(second)) => Point::new(first, second),
+            (Err(err), _) | (_, Err(err)) => {
+                eprintln!("{}", err);
                 continue;
             }
         };
         println!("Enter z1 and z2:");
-        let z = match get_coordinate() {
-            Ok(value) => value,
-            Err(e) => {
-                println!("{}", e);
+        let z = match (get_i32(), get_i32()) {
+            (Ok(first), Ok(second)) => Point::new(first, second),
+            (Err(err), _) | (_, Err(err)) => {
+                eprintln!("{}", err);
                 continue;
             }
         };
 
-        // Caclulating min and max x and y coordinates
-        let x_min = [x[0], y[0], z[0]].iter().fold(f32::INFINITY, |a, &b| a.min(b)) as i32;
-        let x_max = [x[0], y[0], z[0]].iter().fold(f32::NEG_INFINITY, |a, &b| a.max(b)) as i32;
-        let y_min = [x[1], y[1], z[1]].iter().fold(f32::INFINITY, |a, &b| a.min(b)) as i32;
-        let y_max = [x[1], y[1], z[1]].iter().fold(f32::NEG_INFINITY, |a, &b| a.max(b)) as i32;
-
-        let mut coordinate_count = 0; // Setting coordinates count to zero by default
-
-        /*
-        Looping through each coordinate
-        in which the triangle lies
-        */
-        for i in x_min..=x_max {
-            for j in y_min..=y_max {
-                let point = [i as f32, j as f32];
-                if is_point_in_triangle(point, x, y, z) {
-                    coordinate_count += 1;
-                }
-            }
-        }
-
+        // Calculating and printing the result
+        let coordinate_count = internal_points_count(x, y, z);
         println!("Total points ammount: {}\n", coordinate_count);
+
+        // Asking if the user wants to continue
+        println!("Continue?\nY/N");
+
+        let mut input = String::new();
+        io::stdin()
+            .read_line(&mut input)
+            .expect("Failed to read line");
+
+        if !input.contains('y') {
+            break;
+        }
     }
 }
 
-// Checks if point is in triangle.
-fn is_point_in_triangle(point: [f32; 2], x: [f32; 2], y: [f32; 2], z: [f32; 2]) -> bool {
-    /*
-    Check the sign of the areas of
-    smaller triangles formed by the
-    point and pairs of vertices
-     */
-    let a = sign(point, x, y) < 0.0;
-    let b = sign(point, y, z) < 0.0;
-    let c = sign(point, z, x) < 0.0;
-
-    // Returns true, if the signs are all the same (inside the triangle)
-    return a == b && b == c;
-}
-
-// Calculates the sign of area formed by point.
-fn sign(x: [f32; 2], y: [f32; 2], z: [f32; 2]) -> f32 {
-    return (x[0] - z[0]) * (y[1] - z[1]) - (y[0] - z[0]) * (x[1] - z[1]);
-}
-
-// Returns array of two doubles
-fn get_coordinate() -> Result<[f32; 2], String> {
-    let x1 = get_f32()?;
-    let x2 = get_f32()?;
-
-    Ok([x1, x2])
-}
-
-// Gets user input and converts it to f32
-fn get_f32() -> Result<f32, String> {
+/// Gets user input and converts it to f32
+fn get_i32() -> Result<i32, String> {
     let mut x = String::new();
 
     io::stdin().read_line(&mut x).expect("Failed to read line");
 
-    let x: Result<f32, String> = match x.trim().parse() {
+    let x: Result<i32, String> = match x.trim().parse() {
         Ok(num) => Ok(num),
         // Panics on errors with additional comments
-        Err(err) => {
-            if err.to_string().contains("invalid") {
-                Err("Invalid format: Not a valid floating-point number".to_string())
-            } else if err.to_string().contains("overflow") {
-                Err("Overflow: Number is too large".to_string())
-            } else if err.to_string().contains("underflow") {
-                Err("Underflow: Number is too small".to_string())
-            } else {
-                Err("Unknown error occurred".to_string())
-            }
+        Err(err) => match err.kind() {
+            IntErrorKind::Empty => Ok(0),
+            IntErrorKind::InvalidDigit => Err("You must enter a number".to_string()),
+            _ => Err("Unknown error occurred".to_string()),
         },
     };
 
     x
+}
+
+/// Returns point count in triangle
+fn internal_points_count(a: Point, b: Point, c: Point) -> i32 {
+    // 3 extra integer points for the vertices
+    let boundary_points = boundary_points_count(&a, &b)
+        + boundary_points_count(&b, &c)
+        + boundary_points_count(&a, &c)
+        + 3;
+    // Calculate 2*A for the triangle
+    let double_area = (a.x * (b.y - c.y) + b.x * (c.y - a.y) + c.x * (a.y - b.y)).abs();
+
+    /* Use Pick's theorem: Area =  i + b/2 - 1
+    (i - interior, b - boundary points)
+    to calculate the  number of Interior points */
+    (double_area - boundary_points + 2) / 2
+}
+
+/// Returns the number of int points between two points
+fn boundary_points_count(a: &Point, b: &Point) -> i32 {
+    // Check if line parallel to axes
+    if a.x == b.x {
+        return (a.y - b.y).abs() - 1;
+    }
+
+    if a.y == b.y {
+        return (a.x - b.x).abs() - 1;
+    }
+
+    get_gcd((a.x - b.x).abs(), (a.y - b.y).abs()) - 1
+}
+
+/// Returns greatest common denominator of two numbers
+fn get_gcd(a: i32, b: i32) -> i32 {
+    if b == 0 {
+        a
+    } else {
+        get_gcd(b, a % b)
+    }
 }
